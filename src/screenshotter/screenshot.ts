@@ -126,7 +126,7 @@ export class Screenshotter {
    * @param page - The Playwright page object to take a screenshot of.
    * @returns A `SavedScreenshot` object containing the screenshot information.
    */
-  async storeScreenshot(description: string,diagnostic: boolean = false,  page: Page | undefined = undefined) {
+  async storeScreenshot(description: string, timeoutBefore: number = 0, diagnostic: boolean = false,  page: Page | undefined = undefined) {
     const screenshotPage = page != undefined ? page : this.page;
     let name: string, timestamp: Date;
     if (diagnostic) {
@@ -134,6 +134,11 @@ export class Screenshotter {
     } else {
      ({name, timestamp } = this.getNextScreenshotPathName());
     }
+
+    if (timeoutBefore !== 0) {
+      await screenshotPage.waitForTimeout(timeoutBefore);
+    }
+
     const buffer = await screenshotPage.screenshot();
     let counter = diagnostic ? this.diagnosticCounter : this.counter;
     let result: SavedScreenshot = {name, timestamp, buffer, diagnostic, counter: counter, description: description};
