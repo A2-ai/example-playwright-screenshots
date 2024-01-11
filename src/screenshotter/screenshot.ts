@@ -1,56 +1,13 @@
 import { existsSync } from "fs";
 import { Page } from "@playwright/test";
-const sharp = require("sharp");
-const { createCanvas, loadImage } = require("canvas");
+import { addTimestamp } from "./utils";
 const leftPad = require('left-pad')
-
-async function addTimestamp(imageBuffer, testid, timestamp, fontSize = 20) {
-  const image = await sharp(imageBuffer).metadata();
-  const padding = 5;
-  const textHeight = fontSize + padding * 2; // Height of text area
-  const lineThickness = 1; // Thickness of the dividing line
-
-  // Create a canvas with the new dimensions
-  const canvas = createCanvas(
-    image.width,
-    image.height + textHeight + lineThickness
-  );
-  const context = canvas.getContext("2d");
-
-  // Draw original image onto the canvas
-  const originalImage = await loadImage(imageBuffer);
-  context.drawImage(
-    originalImage,
-    0,
-    textHeight + lineThickness,
-    image.width,
-    image.height
-  );
-
-  // Draw white background for text
-  context.fillStyle = "#FFFFFF";
-  context.fillRect(0, 0, image.width, textHeight);
-
-  // Draw dividing line
-  context.fillStyle = "#000000"; // Change line color if needed
-  context.fillRect(0, textHeight, image.width, lineThickness);
-
-  // Draw text
-  context.fillStyle = "#000000"; // Text color
-  context.font = `${fontSize}px Arial`;
-  context.fillText(
-    timestamp,
-    image.width - context.measureText(timestamp).width - padding,
-    fontSize + padding
-  );
-  context.fillText(testid, 10, fontSize + padding);
-
-  return sharp(canvas.toBuffer()).png().toBuffer();
-}
+const sharp = require("sharp");
 
 interface SavedScreenshot {
     name: string;
     timestamp: Date;
+    description: string;
     buffer: Buffer;
     diagnostic: boolean;
     counter: number;
@@ -87,6 +44,10 @@ export class Screenshotter {
    * total were taken, instead of saving them as soon as invoked.
    */
   private savedScreenshots: SavedScreenshot[];
+
+  page: Page;
+
+
   /**
    * Constructs a new `Screenshotter` instance.
    * 
@@ -98,8 +59,10 @@ export class Screenshotter {
   constructor(
     identifier: string,
     screenshotDirectory: string,
-    startingCounter: number = 1
+    page: Page,
+    startingCounter: number = 1,
   ) {
+    this.page = page;
     this.identifier = identifier;
     // each time a count is requested its incremented first, so we need to start the counter
     // at one less than the starting counter since it'll be incremented
@@ -116,16 +79,19 @@ export class Screenshotter {
     /**
    * Takes a screenshot of the provided page.
    * 
-   * @param page - The Playwright page object to take a screenshot of.
+   * @param description - A description of the screenshot.
    * @param diagnostic - If true, takes a diagnostic screenshot; otherwise, takes a regular screenshot.
+   * @param page - The Playwright page object to take a screenshot of.
    */
-  async takeScreenshot(page: Page, diagnostic: boolean = false) {
-    let savedScreenshot = await this.storeScreenshot(page, diagnostic); 
+  async takeScreenshot(description: string,diagnostic: boolean = false,  page: Page | undefined) {
+    const screenshotPage = page != undefined ? page : this.page;
+    let savedScreenshot = await this.storeScreenshot(description, diagnostic, screenshotPage); 
     let screenshotType = diagnostic ? "diagnostic" : "screenshot";
     addTimestamp(
       savedScreenshot.buffer,
       `${this.identifier} - ${screenshotType} ${savedScreenshot.counter}`,
-      savedScreenshot.timestamp
+      savedScreenshot.timestamp.toISOString(),
+      savedScreenshot.description
     )
       .then((buffer) => sharp(buffer).toFile(savedScreenshot.name))
       .catch((err) => console.error(err));
@@ -143,7 +109,8 @@ export class Screenshotter {
         await addTimestamp(
             screenshot.buffer,
             `${this.identifier} - ${screenshotType} ${screenshot.counter} of ${screenshot.diagnostic ? totalDiagnosticScreenshots : totalScreenshots}`,
-            screenshot.timestamp
+            screenshot.timestamp.toISOString(),
+            screenshot.description
         )
             .then((buffer) => sharp(buffer).toFile(screenshot.name))
             .catch((err) => console.error(err));
@@ -154,20 +121,22 @@ export class Screenshotter {
    * Stores a screenshot in memory for later saving. This is useful if you want to
    * take a screenshot and then do something else with the page before saving it.
    * 
-   * @param page - The Playwright page object to take a screenshot of.
+   * @param description - A description of the screenshot.
    * @param diagnostic - If true, takes a diagnostic screenshot; otherwise, takes a regular screenshot.
+   * @param page - The Playwright page object to take a screenshot of.
    * @returns A `SavedScreenshot` object containing the screenshot information.
    */
-  async storeScreenshot(page: Page, diagnostic: boolean = false) {
+  async storeScreenshot(description: string,diagnostic: boolean = false,  page: Page | undefined = undefined) {
+    const screenshotPage = page != undefined ? page : this.page;
     let name: string, timestamp: Date;
     if (diagnostic) {
      ({name, timestamp } = this.getNextDiagnosticScreenshotPathName());
     } else {
      ({name, timestamp } = this.getNextScreenshotPathName());
     }
-    const buffer = await page.screenshot();
+    const buffer = await screenshotPage.screenshot();
     let counter = diagnostic ? this.diagnosticCounter : this.counter;
-    let result: SavedScreenshot = {name, timestamp, buffer, diagnostic, counter: counter};
+    let result: SavedScreenshot = {name, timestamp, buffer, diagnostic, counter: counter, description: description};
     this.savedScreenshots.push(result);
     return result 
   }

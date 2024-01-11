@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { describe } from 'node:test';
-
+import { Screenshotter } from '../src/screenshotter/screenshot';
+import * as path from 'path';
 
 const url = 'https://a2-ai.github.io/playwright-testing-playground/';
 

@@ -20,13 +20,14 @@ describe("can select sets of elements", () => {
     const testid = "plw-elem-001";
     const screenshot = new Screenshotter(
       testid,
-      path.join(process.cwd(), "/screenshots")
+      path.join(process.cwd(), "/screenshots"),
+      page
     );
     test.info().annotations.push({
       type: "test-id",
       description: testid,
     });
-    await screenshot.storeScreenshot(page);
+    await screenshot.storeScreenshot("before clicking on element");
     const element = await page.getByTestId("item1");
     await expect(element).toHaveCSS("background-color", "rgb(236, 236, 236)");
     await element.click();
@@ -34,7 +35,7 @@ describe("can select sets of elements", () => {
     // time you're querying this
     await expect(element).toHaveCSS("background-color", "rgb(173, 216, 230)");
     let startTime = new Date();
-    await screenshot.storeScreenshot(page);
+    await screenshot.storeScreenshot("after clicking on element is blue");
     await screenshot.saveStoredScreenshots();
   });
 
@@ -42,7 +43,8 @@ describe("can select sets of elements", () => {
     const testid = "plw-elem-002";
     const screenshot = new Screenshotter(
       testid,
-      path.join(process.cwd(), "/screenshots")
+      path.join(process.cwd(), "/screenshots"),
+      page
     );
     test.info().annotations.push({
       type: "test-id",
@@ -62,7 +64,7 @@ describe("can select sets of elements", () => {
       await expect(element).toHaveCSS("background-color", "rgb(173, 216, 230)");
     });
     await expect(element2).toHaveCSS("background-color", "rgb(236, 236, 236)");
-    await screenshot.storeScreenshot(page);
+    await screenshot.storeScreenshot("elements 1 and 3 are show as blue since they've been clicked");
     await screenshot.saveStoredScreenshots();
   });
 });
